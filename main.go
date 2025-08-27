@@ -1,13 +1,12 @@
 package main
 
 import (
-	"fmt"
-	"strings"
+	"os"
 
-	"github.com/coalaura/logger/plain"
+	"github.com/coalaura/plain"
 )
 
-var log = plain.New()
+var log = plain.New(os.Stdout)
 
 func main() {
 	log.Println("Loading config...")
@@ -30,37 +29,32 @@ func main() {
 	err = database.Connect()
 	log.MustFail(err)
 
-	defer database.Close()
-
-	for {
-		license := prompt("License > ")
-
-		if license == "" {
-			continue
-		} else if strings.EqualFold(string(license[0]), "q") {
-			return
-		} else if !strings.HasPrefix(license, "license:") {
-			log.Warnln("Invalid license identifier")
-
-			continue
-		}
-
-		user, err := database.Find(license)
-		if err != nil {
-			log.Warnln(err.Error())
-
-			continue
-		}
-
-		log.Printf("\n%s\n", user.String())
-	}
+	loop(database)
 }
 
-func prompt(msg string) string {
-	var input string
+func loop(database *Database) {
+	for {
+		var (
+			typ   = SelectType()
+			where string
+			err   error
+		)
 
-	log.Print(msg)
-	fmt.Scanln(&input)
+		for where == "" {
+			where, _ = log.Read(os.Stdin, "Where > ", 64)
+		}
 
-	return strings.TrimSpace(input)
+		log.Println("Retrieving...")
+
+		switch typ {
+		case "user":
+			err = HandleUser(database, where)
+		case "character":
+			err = HandleCharacter(database, where)
+		}
+
+		if err != nil {
+			log.Warnln(err.Error())
+		}
+	}
 }

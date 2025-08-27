@@ -1,27 +1,12 @@
 package main
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"sort"
 	"strings"
-
-	"github.com/coalaura/slect"
 )
-
-type Database struct {
-	db *sql.DB
-
-	ID       int       `json:"serviceId"`
-	Name     *nullable `json:"serverName"`
-	Address  string    `json:"address"`
-	Port     int       `json:"port"`
-	Username string    `json:"username"`
-	Password string    `json:"password"`
-	Database string    `json:"database"`
-}
 
 func (d *Database) String() string {
 	var name string
@@ -64,13 +49,4 @@ func LoadDatabases(config *Config) ([]*Database, error) {
 	})
 
 	return databases, nil
-}
-
-func SelectDatabase(databases []*Database) *Database {
-	index, err := slect.FSelect(log, "Database >", databases)
-	if err != nil {
-		return nil
-	}
-
-	return databases[index]
 }

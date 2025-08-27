@@ -1,11 +1,24 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 
-	_ "github.com/go-sql-driver/mysql"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
+
+type Database struct {
+	db *gorm.DB
+
+	ID       int       `json:"serviceId"`
+	Name     *nullable `json:"serverName"`
+	Address  string    `json:"address"`
+	Port     int       `json:"port"`
+	Username string    `json:"username"`
+	Password string    `json:"password"`
+	Database string    `json:"database"`
+}
 
 func (d *Database) DSN() string {
 	return fmt.Sprintf(
@@ -18,12 +31,10 @@ func (d *Database) DSN() string {
 	)
 }
 
-func (d *Database) Close() error {
-	return d.db.Close()
-}
-
 func (d *Database) Connect() error {
-	db, err := sql.Open("mysql", d.DSN())
+	db, err := gorm.Open(mysql.Open(d.DSN()), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
 	if err != nil {
 		return err
 	}
@@ -33,53 +44,46 @@ func (d *Database) Connect() error {
 	return nil
 }
 
-func (d *Database) Find(license string) (*User, error) {
+func (d *Database) FindUserByID(id string) (*User, error) {
 	var user User
 
-	row := d.db.QueryRow("SELECT user_id, player_name, discord_id, is_trusted, is_staff, is_senior_staff, is_super_admin, playtime, average_ping, average_fps, last_seen, media_devices FROM users WHERE license_identifier = ? LIMIT 1", license)
-
-	err := row.Scan(&user.ID, &user.PlayerName, &user.DiscordId, &user.IsTrusted, &user.IsStaff, &user.IsSeniorStaff, &user.IsSuperAdmin, &user.Playtime, &user.AveragePing, &user.AverageFPS, &user.LastSeen, &user.MediaDevices)
-	if err != nil {
-		return nil, err
-	}
-
-	rows, err := d.db.Query("SELECT character_id, character_created, character_creation_timestamp, first_name, last_name, date_of_birth, gender, cash, bank, job_name, department_name, position_name, playtime, last_seen FROM characters WHERE license_identifier = ? AND character_deleted != 1 ORDER BY character_id", license)
-	if err != nil {
-		return nil, err
-	}
-
-	defer rows.Close()
-
-	for rows.Next() {
-		var character Character
-
-		err := rows.Scan(
-			&character.ID,
-			&character.Created,
-			&character.CreatedAt,
-			&character.FirstName,
-			&character.LastName,
-			&character.DateOfBirth,
-			&character.Gender,
-			&character.Cash,
-			&character.Bank,
-			&character.JobName,
-			&character.DepartmentName,
-			&character.PositionName,
-			&character.Playtime,
-			&character.LastSeen,
-		)
-
-		if err != nil {
-			return nil, err
-		}
-
-		user.Characters = append(user.Characters, character)
-	}
-
-	if err = rows.Err(); err != nil {
-		return nil, err
+	res := d.db.Table("users").Take(&user, "user_id = ?", id)
+	if res.Error != nil {
+		return nil, res.Error
 	}
 
 	return &user, nil
+}
+
+func (d *Database) FindUserByLicense(license string) (*User, error) {
+	var user User
+
+	res := d.db.Table("users").Take(&user, "license_identifier = ?", license)
+	if res.Error != nil {
+		return nil, res.Error
+	}
+
+	return &user, nil
+}
+
+func (d *Database) FindCharactersByID(id string) ([]Character, error) {
+	var characters []Character
+
+	res := d.db.Table("characters").Find(&characters, "character_id = ?", id)
+	if res.Error != nil {
+		return nil, res.Error
+	}
+
+	return characters, nil
+}
+
+func (d *Database) FindCharactersByLicense(license string) ([]Character, error) {
+	var characters []Character
+
+	res := d.db.Table("characters").Find(&characters, "license_identifier = ?", license)
+	if res.Error != nil {
+		return nil, res.Error
+	}
+
+	return characters, nil
 }

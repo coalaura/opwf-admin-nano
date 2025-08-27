@@ -1,43 +1,49 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 )
 
 type User struct {
-	ID            int64
-	PlayerName    *string
-	DiscordId     *string
-	IsTrusted     bool
-	IsStaff       bool
-	IsSeniorStaff bool
-	IsSuperAdmin  bool
-	Playtime      int64
-	LastSeen      *int64
-	AveragePing   *int64
-	AverageFPS    *int64
-	MediaDevices  string
-
-	Characters []Character
+	ID            int64   `gorm:"column:user_id;<-:false"`
+	PlayerName    *string `gorm:"column:player_name;<-:false"`
+	DiscordId     *string `gorm:"column:discord_id;<-:false"`
+	IsTrusted     bool    `gorm:"column:is_trusted;<-:false"`
+	IsStaff       bool    `gorm:"column:is_staff;<-:false"`
+	IsSeniorStaff bool    `gorm:"column:is_senior_staff;<-:false"`
+	IsSuperAdmin  bool    `gorm:"column:is_super_admin;<-:false"`
+	Playtime      int64   `gorm:"column:playtime;<-:false"`
+	LastSeen      *int64  `gorm:"column:last_seen;<-:false"`
+	AveragePing   *int64  `gorm:"column:average_ping;<-:false"`
+	AverageFPS    *int64  `gorm:"column:average_fps;<-:false"`
+	MediaDevices  string  `gorm:"column:media_devices;<-:false"`
 }
 
-type Character struct {
-	ID             int64
-	Created        bool
-	CreatedAt      *int64
-	FirstName      *string
-	LastName       *string
-	DateOfBirth    *string
-	Gender         *int64
-	Cash           int64
-	Bank           int64
-	LastSeen       *int64
-	Playtime       int64
-	JobName        *string
-	DepartmentName *string
-	PositionName   *string
+func HandleUser(database *Database, where string) error {
+	var (
+		user *User
+		err  error
+	)
+
+	if IsValidInteger(where) {
+		user, err = database.FindUserByID(where)
+	} else if IsValidLicense(where) {
+		user, err = database.FindUserByLicense(where)
+	} else {
+		err = errors.New("invalid where (allowed: id, license)")
+	}
+
+	if err != nil {
+		return err
+	}
+
+	log.Println()
+	log.Println(user)
+
+	return nil
 }
 
 func (u *User) GetRank() string {
@@ -85,96 +91,6 @@ func (u *User) String() string {
 	if u.MediaDevices != "" {
 		fmt.Fprintf(&builder, " MediaDevices : %s\n", u.MediaDevices)
 	}
-
-	if len(u.Characters) > 0 {
-		for _, character := range u.Characters {
-			fmt.Fprintf(&builder, "\n=== Character: #%d\n", character.ID)
-
-			builder.WriteString(character.String())
-		}
-	}
-
-	return builder.String()
-}
-
-func (c *Character) GetFullName() string {
-	var name string
-
-	if c.FirstName == nil && c.LastName == nil {
-		return "n/a"
-	}
-
-	if c.FirstName != nil {
-		name = *c.FirstName
-	}
-
-	if c.LastName != nil {
-		if name != "" {
-			name += " "
-		}
-
-		name += *c.LastName
-	}
-
-	return name
-}
-
-func (c *Character) GetGender() string {
-	if c.Gender != nil {
-		switch *c.Gender {
-		case 0:
-			return "male"
-		case 1:
-			return "female"
-		}
-	}
-
-	return "n/a"
-}
-
-func (c *Character) GetFullJob() string {
-	if c.JobName == nil {
-		return "n/a"
-	}
-
-	job := *c.JobName
-
-	if c.DepartmentName != nil {
-		job += " / " + *c.DepartmentName
-	} else {
-		job += " / -"
-	}
-
-	if c.PositionName != nil {
-		job += " / " + *c.PositionName
-	} else {
-		job += " / -"
-	}
-
-	return job
-}
-
-func (c *Character) String() string {
-	var builder strings.Builder
-
-	fmt.Fprintf(&builder, " Name      : %s\n", c.GetFullName())
-
-	if c.DateOfBirth != nil && *c.DateOfBirth != "" {
-		fmt.Fprintf(&builder, " Birthday  : %s\n", *c.DateOfBirth)
-	}
-
-	fmt.Fprintf(&builder, " Gender    : %s\n", c.GetGender())
-
-	if c.Playtime > 0 {
-		fmt.Fprintf(&builder, " Playtime  : %d hours\n", c.Playtime/3600)
-	}
-
-	if c.LastSeen != nil && *c.LastSeen > 0 {
-		fmt.Fprintf(&builder, " Last Seen : %s\n", time.Unix(*c.LastSeen, 0).Format(time.RFC822))
-	}
-
-	fmt.Fprintf(&builder, " Money     : $%d / $%d\n", c.Cash, c.Bank)
-	fmt.Fprintf(&builder, " Job       : %s\n", c.GetFullJob())
 
 	return builder.String()
 }
