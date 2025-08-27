@@ -33,13 +33,15 @@ jobs:
         mkdir -p build
         [[ "${{ matrix.goos }}" == "windows" ]] && EXT=".exe" || EXT=""
 
+        OUT="build/opfw_${{ github.ref_name }}_${{ matrix.goos }}_${{ matrix.goarch }}${EXT}"
+
         GOOS=${{ matrix.goos }} \
         GOARCH=${{ matrix.goarch }} \
         CGO_ENABLED=0 \
         go build \
           -trimpath \
           -buildvcs=false \
-          -o "build/opfw${EXT}" .
+          -o "$OUT" .
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
